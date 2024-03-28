@@ -1,0 +1,201 @@
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+
+from huggingface_hub.repocard import metadata_eval_result, metadata_save
+from stable_baselines3.common.base_class import BaseAlgorithm
+
+
+def generate_metadata(
+    model_name: str,
+    metrics_id: Optional[str],
+    data_id: Optional[str],
+    score: Optional[float],
+    library_name: str = "stable-baselines3",
+) -> Dict[str, Any]:
+    """
+    Define the tags for the model card
+    :param model_name: name of the model
+    :param data_id: name of the environment
+    :mean_reward: mean reward of the agent
+    :std_reward: standard deviation of the mean reward of the agent
+    """
+    metadata = {}
+
+    metadata["library_name"] = library_name
+    metadata["tags"] = [
+        data_id,
+        "deep-reinforcement-learning",
+        "reinforcement-learning",
+        library_name,
+    ]
+
+    # Add metrics
+    eval = metadata_eval_result(
+        model_pretty_name=model_name,
+        task_pretty_name="reinforcement-learning",
+        task_id="reinforcement-learning",
+        metrics_pretty_name=metrics_id,
+        metrics_id=metrics_id,
+        metrics_value=f"{score:.2f}",
+        dataset_pretty_name=data_id,
+        dataset_id=data_id,
+    )
+
+    # Merges both dictionaries
+    metadata = {**metadata, **eval}
+
+    return metadata
+
+
+def generate_dataset_metadata(dataset_id: str, lenght: int) -> Dict[str, Any]:
+    """
+    Define the tags for the model card
+    :param dataset_id: name of the dataset
+    :lenght: lenght of the dataset
+    """
+    metadata = {}
+
+    metadata["library_name"] = "torch"
+    metadata["tags"] = [
+        dataset_id,
+        "deep-learning",
+        "dataset",
+        "torch",
+    ]
+
+    # Add metrics
+    eval = metadata_eval_result(
+        model_pretty_name=dataset_id,
+        task_pretty_name="dataset",
+        task_id="dataset",
+        metrics_pretty_name="lenght",
+        metrics_id="lenght",
+        metrics_value=f"{lenght}",
+        dataset_pretty_name=dataset_id,
+        dataset_id=dataset_id,
+    )
+
+    # Merges both dictionaries
+    metadata = {**metadata, **eval}
+
+    return metadata
+
+
+def generate_sb_model_card(model_name: str, data_id: str, score: float) -> Tuple[str, Dict[str, Any]]:
+    """
+    Generate the model card for the Hub
+    :param model_name: name of the model
+    :data_id: name of the environment
+    :mean_reward: mean reward of the agent
+    :std_reward: standard deviation of the mean reward of the agent
+    """
+    # Step 1: Select the tags
+    metadata = generate_metadata(model_name, "mean_reward", data_id, score, "stable-baselines3")
+
+    # Step 2: Generate the model card
+    model_card = f"""
+# **{model_name}** Agent playing **{data_id}**
+This is a trained model of a **{model_name}** agent playing **{data_id}**
+using the [stable-baselines3 library](https://github.com/DLR-RM/stable-baselines3).
+"""
+
+    model_card += """
+## Usage (with Stable-baselines3)
+TODO: Add your code
+
+
+```python
+from hugg import HuggingFaceStableBaseLinesModelController as HC
+hc = HC()
+sb_model = hc.download_latest_model()
+sb_model.learn(total_timesteps=1000) # Train the agent or do whatever you want
+...
+```
+"""
+
+    return model_card, metadata
+
+
+def generate_autoencoder_model_card(model_name: str, data_id: str, score: float) -> Tuple[str, Dict[str, Any]]:
+    """
+    Generate the model card for the Hub
+    :param model_name: name of the model
+    :data_id: name of the environment
+    :mean_reward: mean reward of the agent
+    :std_reward: standard deviation of the mean reward of the agent
+    """
+    # Step 1: Select the tags
+    metadata = generate_metadata(model_name, "mean_reward", data_id, score, "torch")
+
+    # Step 2: Generate the model card
+    model_card = f"""
+# **RL-Agent Embedding Autoencoder**
+Loss: **{score:.2f}**
+"""
+
+    model_card += """
+## Usage (with AutoHugg)
+
+
+```python
+from hugg import HuggingFaceAutoencoderModelController as HC
+
+hc = HC()
+hc.download_latest_model()
+...
+```
+"""
+
+    return model_card, metadata
+
+
+def generate_dataset_card(dataset_id: str, lenght: int) -> Tuple[str, Dict[str, Any]]:
+    """
+    Generate the dataset card for the Hub
+    :param dataset_id: name of the dataset
+    :lenght: lenght of the dataset
+    """
+    # Step 1: Select the tags
+    metadata = generate_dataset_metadata(dataset_id, lenght)
+
+    # Step 2: Generate the model card
+    dataset_card = f"""
+# **Dataset**
+Lenght: **{lenght}**
+"""
+
+    dataset_card += """
+## Usage (with AutoHugg)
+
+
+```python
+from hugg import HuggingFaceDatasetController as HC
+
+hc = HC()
+dataset = hc.download_latest_dataset()
+...
+```
+"""
+
+    return dataset_card, metadata
+
+
+def save_card(local_path: Path, generated_model_card: str, metadata: Dict[str, Any]):
+    """Saves a model card for the repository.
+    :param local_path: repository directory
+    :param generated_model_card: model card generated by _generate_model_card()
+    :param metadata: metadata
+    """
+    readme_path = local_path / "README.md"
+    readme = ""
+    if readme_path.exists():
+        with readme_path.open("r", encoding="utf8") as f:
+            readme = f.read()
+    else:
+        readme = generated_model_card
+
+    with readme_path.open("w", encoding="utf-8") as f:
+        f.write(readme)
+
+    # Save our metrics to Readme metadata
+    metadata_save(readme_path, metadata)

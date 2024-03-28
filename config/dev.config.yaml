@@ -1,0 +1,13 @@
+title: Development Configuration
+
+Hub:
+  endpoint: "https://huggingface.co/advanced-additive"
+  username: "advanced-additive"
+  branch: "main"
+  Model:
+    repo_name: "test_model_0"
+    card_location: "./Cards/model_template.md"
+    min_reward: 0
+  Dataset:
+    repo_name: "test_dataset_0"
+    card_location: "./Cards/dataset_card.md"
