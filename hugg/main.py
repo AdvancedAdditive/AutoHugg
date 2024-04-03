@@ -17,10 +17,13 @@ from hugg.utils.helpers import (get_hugg_token,
                                 package_dataset_to_hub,
                                 package_sb_model_to_hub)
 from hugg.utils.load_config import load
+from torch import nn
+from typing import Any, Dict, Optional, Union
+import requests
 
 
 class HuggingFaceRepo:
-    def __init__(self, config: Config, repo_type: str, branch_name: str) -> None:
+    def __init__(self, config: Config, repo_type: str, branch_name: str,repo_name=None) -> None:
         """
         Initialize the HuggingFaceRepo object.
 
@@ -47,7 +50,18 @@ class HuggingFaceRepo:
                 self.repo_config = self.config.hub.model
             case _:
                 raise ValueError("Repo type must be either 'model' or 'dataset'")
-        self.repo_name = self.repo_config.repo_name
+        if repo_name == None:
+            self.repo_name = self.repo_config.repo_name
+
+        def check_internet_connection() -> bool:
+            try:
+                response = requests.get("https://www.google.com")
+                return response.status_code == 200
+            except requests.ConnectionError:
+                return False
+
+        if not check_internet_connection():
+            raise ConnectionError("No internet connection available.")
         self.repo_id = self._create_model()
         self.checkout(self.branch_name)
  
@@ -58,9 +72,13 @@ class HuggingFaceRepo:
         Returns:
             str: The repository ID.
         """
-        repo_id = f"{self.user_name}/{self.repo_config.repo_name}"
-        url = self.hub_writer.create_repo(repo_id, private=True, repo_type=self.repo_type, exist_ok=True)
-        logging.info(f"Created repo at {url}")
+        try:
+            repo_id = f"{self.user_name}/{self.repo_name}"
+            url = self.hub_writer.create_repo(repo_id, private=True, repo_type=self.repo_type, exist_ok=True)
+            logging.info(f"Created repo at {url}")
+        except Exception as e:
+            logging.error(f"Error creating repo: {e}")
+            return None
         return repo_id
     
     def checkout(self, branch: str) -> None:
@@ -70,7 +88,10 @@ class HuggingFaceRepo:
         Args:
             branch (str): The name of the branch.
         """
-        self.hub_writer.create_branch(repo_id=self.repo_id, branch=branch, token=self.token.write, exist_ok=True, repo_type=self.repo_type)
+        try:
+            self.hub_writer.create_branch(repo_id=self.repo_id, branch=branch, token=self.token.write, exist_ok=True, repo_type=self.repo_type)
+        except Exception as e:
+            logging.error(f"Error checking out branch: {e}")
         
     def push(self, tmp_dir: str, commit_message: str) -> None:
         """
@@ -82,14 +103,17 @@ class HuggingFaceRepo:
         """
         if not os.path.isdir(tmp_dir):
             raise ValueError(f"{tmp_dir} is not a valid directory")
-        self.hub_writer.upload_folder(repo_id=self.repo_id,
-            folder_path=tmp_dir,
-            path_in_repo="",
-            commit_message=commit_message,
-            token=self.token.write,
-            revision=self.branch_name,
-            repo_type=self.repo_type)
-        logging.info(f"Pushed model to {self.repo_id}")
+        try:
+            self.hub_writer.upload_folder(repo_id=self.repo_id,
+                folder_path=tmp_dir,
+                path_in_repo="",
+                commit_message=commit_message,
+                token=self.token.write,
+                revision=self.branch_name,
+                repo_type=self.repo_type)
+            logging.info(f"Pushed model to {self.repo_id}")
+        except Exception as e:
+            logging.error(f"Error pushing model: {e}")
     
     def pull(self, filename: str, destination_dir: Optional[str] = None) -> Path:
         """
@@ -102,7 +126,11 @@ class HuggingFaceRepo:
         Returns:
             Path: The path to the pulled model.
         """
-        local_dir = self.hub_reader.hf_hub_download(repo_id=self.repo_id, filename=filename, revision=self.branch_name, token=self.token.read, local_dir=destination_dir, repo_type=self.repo_type)
+        try:
+            local_dir = self.hub_reader.hf_hub_download(repo_id=self.repo_id, filename=filename, revision=self.branch_name, token=self.token.read, local_dir=destination_dir, repo_type=self.repo_type)
+        except Exception as e:
+            logging.error(f"Error pulling model: {e}")
+            return None
         logging.info(f"Pulled model from {self.repo_id} to {local_dir}")
         return local_dir
 
@@ -116,20 +144,33 @@ class HuggingFaceRepo:
         Returns:
             Optional[float]: The model card information value, or None if not found.
         """
-        card = self.hub_reader.model_info(repo_id=self.repo_id, revision=self.branch_name, token=self.token.read)
+        try:
+            if self.repo_type == "model":
+                card = self.hub_reader.model_info(repo_id=self.repo_id, revision=self.branch_name, token=self.token.read)
+            if self.repo_type == "dataset":
+                card = self.hub_reader.dataset_info(repo_id=self.repo_id, revision=self.branch_name, token=self.token.read)
+            last_commit = self.hub_reader.list_repo_commits(repo_id=self.repo_id, revision=self.branch_name, token=self.token.read,repo_type=self.repo_type)[0]
+
+        except Exception as e:
+            logging.error(f"Error getting model card info: {e}")
+            return None
         if card.card_data is None:
             logging.warning(f"Model card not found for {self.repo_id} creating a new one?")
             return None
         match key:
             case "score":
                 return float(card.card_data.eval_results[0].metric_value)
+            case "last_commit":
+                return last_commit.commit_id
+            case "length":
+                return int(card.card_data["model-index"][0]["results"][0]["metrics"][0]["value"])
             case _:
                 raise NotImplementedError(f"Key {key} not implemented")
     
 
 
 class HuggingFaceController:
-    def __init__(self, config: Config, branch_name: str, repo_type: str) -> None:
+    def __init__(self, config: Config, branch_name: str, repo_type: str,repo_name=None) -> None:
         """
         Initialize the HuggingFaceController object.
 
@@ -181,6 +222,7 @@ class HuggingFaceController:
             Path: The path to the downloaded model.
         """
         return self.repo.pull(name, destination_dir)
+
 
 class HuggingFaceStableBaseLinesModelController:
     def __init__(self, config: Config, branch_name: str) -> None:
@@ -292,7 +334,7 @@ class HuggingFaceAutoencoderModelController:
                 raise ValueError("Could not load model. Check the model type should be stable baselines model")      
 
 class HuggingFaceDatasetController:
-    def __init__(self, config: Config, branch_name: str) -> None:
+    def __init__(self, config: Config, branch_name: str,repo_name=None) -> None:
         """
         Initialize the HuggingFaceDatasetController object.
 
@@ -300,7 +342,7 @@ class HuggingFaceDatasetController:
             config (Config): The configuration object.
             branch_name (str): The name of the branch.
         """
-        self.controller = HuggingFaceController(config, branch_name, "dataset")
+        self.controller = HuggingFaceController(config, branch_name, "dataset",repo_name)
         self.dataset_id: str = self.controller.branch_name + ".db"
 
     def upload_dataset(self, dataset_location: Path, dataset_config: Any, length: int) -> None:
@@ -329,40 +371,48 @@ class HuggingFaceDatasetController:
             destination_dir = tempfile.mkdtemp()
         local_dir = self.controller.download_latest(self.dataset_id + ".zip", destination_dir)
 
+
+
         with zipfile.ZipFile(local_dir, 'r') as zip_ref:
             zip_ref.extractall(Path(local_dir).parent / self.dataset_id)
-
-        return local_dir
+        if os.path.isfile(local_dir):
+            os.remove(local_dir)
+            
+        return local_dir[:-4]
+    
+    def info(self):
+        return self.controller.get_model_card_info("last_commit"),self.controller.get_model_card_info("length")
 
 
 if __name__ == "__main__":
-    from dataclasses import dataclass
+    pass
+    # from dataclasses import dataclass
 
-    import torch
-    import torch.nn as nn
-
-
-    class DummyModel(nn.Module):
-        def __init__(self):
-            super(DummyModel, self).__init__()
-            self.fc = nn.Linear(10, 1)
-
-        def forward(self, x):
-            return self.fc(x)
-    @dataclass   
-    class DummyConfig:
-        test_val:int
+    # import torch
+    # import torch.nn as nn
 
 
-    # Instantiate the model
-    torch_model = DummyModel()
-    sb_model = stable_baselines3.PPO("MlpPolicy", "CartPole-v1")
+    # class DummyModel(nn.Module):
+    #     def __init__(self):
+    #         super(DummyModel, self).__init__()
+    #         self.fc = nn.Linear(10, 1)
+
+    #     def forward(self, x):
+    #         return self.fc(x)
+    # @dataclass   
+    # class DummyConfig:
+    #     test_val:int
+
+
+    # # Instantiate the model
+    # torch_model = DummyModel()
+    # sb_model = stable_baselines3.PPO("MlpPolicy", "CartPole-v1")
 
 
 
-    config = load()
-    logging.basicConfig(level=logging.INFO)
-    model_repo = HuggingFaceDatasetController(config,"test_dataset")
-    model_repo.upload_dataset("./test/dataset/testdataset.db", DummyConfig(1), 1)
-    print(model_repo.download_latest_dataset("./"))
+    # config = load()
+    # logging.basicConfig(level=logging.INFO)
+    # model_repo = HuggingFaceDatasetController(config,"test_dataset")
+    # model_repo.upload_dataset("./test/dataset/testdataset.db", DummyConfig(1), 1)
+    # print(model_repo.download_latest_dataset("./"))
 

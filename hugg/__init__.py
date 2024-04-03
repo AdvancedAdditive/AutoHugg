@@ -1,3 +1,5 @@
-from hugg.main import (HuggingFaceAutoencoderModelController,
-                       HuggingFaceDatasetController,
-                       HuggingFaceStableBaseLinesModelController)
+from hugg.main import (
+    HuggingFaceAutoencoderModelController,
+    HuggingFaceDatasetController,
+    HuggingFaceStableBaseLinesModelController,
+)

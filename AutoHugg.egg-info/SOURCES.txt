@@ -7,5 +7,4 @@ AutoHugg.egg-info/SOURCES.txt
 AutoHugg.egg-info/dependency_links.txt
 AutoHugg.egg-info/top_level.txt
 hugg/__init__.py
-hugg/server/__init__.py
-hugg/server/main.py
+hugg/main.py

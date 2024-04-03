@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
+from datetime import date
 from pathlib import Path
 
 
@@ -7,21 +8,6 @@ from pathlib import Path
 class Dataset:
     repo_name: str
     card_location: str
-
-
-@dataclass(frozen=True)
-class Config:
-    title: str
-    server: "Server"
-    client: "Client"
-    hub: "Hub"
-
-
-@dataclass(frozen=True)
-class Server:
-    host: str
-    port: int
-    log_level: str
 
 
 @dataclass(frozen=True)
@@ -41,5 +27,6 @@ class Hub:
 
 
 @dataclass(frozen=True)
-class Client:
-    log_level: str
+class Config:
+    title: str
+    hub: "Hub"
