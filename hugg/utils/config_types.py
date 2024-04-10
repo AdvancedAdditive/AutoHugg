@@ -5,16 +5,9 @@ from pathlib import Path
 
 
 @dataclass(frozen=True)
-class Dataset:
-    repo_name: str
-    card_location: str
-
-
-@dataclass(frozen=True)
-class Model:
-    repo_name: str
-    card_location: str
-    min_reward: int
+class Config:
+    title: str
+    hub: "Hub"
 
 
 @dataclass(frozen=True)
@@ -27,6 +20,13 @@ class Hub:
 
 
 @dataclass(frozen=True)
-class Config:
-    title: str
-    hub: "Hub"
+class Dataset:
+    repo_name: str
+    card_location: str
+
+
+@dataclass(frozen=True)
+class Model:
+    repo_name: str
+    card_location: str
+    min_reward: int

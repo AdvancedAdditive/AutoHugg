@@ -52,6 +52,8 @@ class HuggingFaceRepo:
                 raise ValueError("Repo type must be either 'model' or 'dataset'")
         if repo_name == None:
             self.repo_name = self.repo_config.repo_name
+        else:
+            self.repo_name = repo_name
 
         def check_internet_connection() -> bool:
             try:
@@ -181,7 +183,7 @@ class HuggingFaceController:
         """
         self.config = config
         self.branch_name = branch_name
-        self.repo = HuggingFaceRepo(config, repo_type, branch_name)
+        self.repo = HuggingFaceRepo(config, repo_type, branch_name,repo_name)
         
     def upload(self, commit_message: str, package_func: callable, *args, **kwargs) -> None:
         """
@@ -221,7 +223,13 @@ class HuggingFaceController:
         Returns:
             Path: The path to the downloaded model.
         """
-        return self.repo.pull(name, destination_dir)
+        _dir = self.repo.pull(name, destination_dir)
+        commit_id = self.repo.get_model_card_info("last_commit")
+        if destination_dir is not None and commit_id is not None:
+            commit_file = os.path.join(destination_dir, commit_id)
+            with open(commit_file, "w") as f:
+                pass
+        return _dir
 
 
 class HuggingFaceStableBaseLinesModelController:
@@ -369,10 +377,19 @@ class HuggingFaceDatasetController:
         """
         if destination_dir is None:
             destination_dir = tempfile.mkdtemp()
-        local_dir = self.controller.download_latest(self.dataset_id + ".zip", destination_dir)
+        commit_id = self.controller.get_model_card_info("last_commit")
 
+        if not os.path.exists(destination_dir):
+            local_dir = self.controller.download_latest(self.dataset_id + ".zip", destination_dir)
+        else:
+            if not commit_id in os.listdir(destination_dir):
+                local_dir = self.controller.download_latest(self.dataset_id + ".zip", destination_dir)
+            else:
+                local_dir = os.path.join(destination_dir, self.dataset_id )
+                logging.info("Skiping Download. Latest Dataset already exists")
+                return local_dir
 
-
+        logging.info('decompressing the dataset')
         with zipfile.ZipFile(local_dir, 'r') as zip_ref:
             zip_ref.extractall(Path(local_dir).parent / self.dataset_id)
         if os.path.isfile(local_dir):
@@ -410,9 +427,11 @@ if __name__ == "__main__":
 
 
 
-    # config = load()
-    # logging.basicConfig(level=logging.INFO)
+    config = load()
+    logging.basicConfig(level=logging.INFO)
     # model_repo = HuggingFaceDatasetController(config,"test_dataset")
     # model_repo.upload_dataset("./test/dataset/testdataset.db", DummyConfig(1), 1)
     # print(model_repo.download_latest_dataset("./"))
 
+    c = HuggingFaceDatasetController(config,"GridNoiseEnv_36",repo_name ='autoencoder_data')
+    c.download_latest_dataset('./data/datasets/hugg/tmp')
