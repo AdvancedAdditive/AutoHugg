@@ -36,7 +36,7 @@ def generate_metadata(
         task_id="reinforcement-learning",
         metrics_pretty_name=metrics_id,
         metrics_id=metrics_id,
-        metrics_value=f"{score:.2f}",
+        metrics_value=f"{score:.16f}",
         dataset_pretty_name=data_id,
         dataset_id=data_id,
     )
