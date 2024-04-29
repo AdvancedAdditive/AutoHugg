@@ -129,7 +129,7 @@ class HuggingFaceRepo:
             Path: The path to the pulled model.
         """
         try:
-            local_dir = self.hub_reader.hf_hub_download(repo_id=self.repo_id, filename=filename, revision=self.branch_name, token=self.token.read, local_dir=destination_dir, repo_type=self.repo_type)
+            local_dir = self.hub_reader.hf_hub_download(repo_id=self.repo_id, filename=filename, revision=self.branch_name, token=self.token.read, local_dir=destination_dir, repo_type=self.repo_type,local_dir_use_symlinks=False)
         except Exception as e:
             logging.error(f"Error pulling model: {e}")
             return None
