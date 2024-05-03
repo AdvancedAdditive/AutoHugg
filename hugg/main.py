@@ -427,11 +427,11 @@ if __name__ == "__main__":
 
 
 
-    config = load()
-    logging.basicConfig(level=logging.INFO)
+    # config = load()
+    # logging.basicConfig(level=logging.INFO)
     # model_repo = HuggingFaceDatasetController(config,"test_dataset")
     # model_repo.upload_dataset("./test/dataset/testdataset.db", DummyConfig(1), 1)
     # print(model_repo.download_latest_dataset("./"))
 
-    c = HuggingFaceDatasetController(config,"GridNoiseEnv_36",repo_name ='autoencoder_data')
-    c.download_latest_dataset('./data/datasets/hugg/tmp')
+    # c = HuggingFaceDatasetController(config,"GridNoiseEnv_36",repo_name ='autoencoder_data')
+    # c.download_latest_dataset('./data/datasets/hugg/tmp')
